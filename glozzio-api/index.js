@@ -132,7 +132,7 @@ app.post('/users', async (req, res) => {
     }
 });
 
-// GET route for retrieving all products
+// GET route for all products
 app.get('/products', async (req, res) => {
     try {
         const products = await productsCollection.find({}).toArray(); // Fetch all products
@@ -143,24 +143,95 @@ app.get('/products', async (req, res) => {
     }
 });
 
-// POST route for creating a new product
-app.post('/products', async (req, res) => {
+
+// GET route for retrieving a product by ID
+app.get('/products/:id', async (req, res) => {
     try {
-        const result = await productsCollection.insertOne(req.body); // Insert product
-        res.status(201).json({
-            message: "Product created successfully",
-            result: result
-        });
+        const productId = req.params.id;
+        const product = await productsCollection.findOne({ _id: new ObjectId(productId) });
+
+        if (!product) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        res.status(200).json(product);
     } catch (error) {
-        console.error('Error creating product:', error);
+        console.error('Error retrieving product:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// DELETE route for removing a product
+
+
+
+// POST
+app.post('/products', async (req, res) => {
+    console.log('Received data:', req.body);
+    try {
+        const { name, color, price } = req.body;
+
+        if (!name || !color || !price) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const newProduct = {
+            name,
+            color,
+            price,
+            reviews: [] // Initialize reviews as an empty array
+        };
+
+        const result = await productsCollection.insertOne(newProduct);
+
+        res.status(201).json({
+            message: 'Product created successfully',
+            productId: result.insertedId
+        });
+    } catch (error) {
+        console.error('Error creating product:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+// PUT
+app.put('/products/:id', async (req, res) => {
+    try {
+        const productId = req.params.id;
+        const { name, color, price } = req.body;
+
+        if (!name || !color || !price) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const updatedProduct = {
+            name,
+            color,
+            price
+        };
+
+        const result = await productsCollection.updateOne(
+            { _id: new ObjectId(productId) },
+            { $set: updatedProduct }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        res.json({
+            message: 'Product updated successfully'
+        });
+    } catch (error) {
+        console.error('Error updating product:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// DELETE
 app.delete('/products/:id', async (req, res) => {
     try {
-        const result = await productsCollection.deleteOne({ _id: ObjectId(req.params.id) }); // Delete product
+        const result = await productsCollection.deleteOne({ _id: new ObjectId(req.params.id) }); // Delete product
         if (result.deletedCount === 0) {
             return res.status(404).json({ error: 'Product not found' });
         }
@@ -170,6 +241,10 @@ app.delete('/products/:id', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+
+
+
 
 // POST route for adding reviews to a product
 app.post('/products/:id/reviews', async (req, res) => {
@@ -210,6 +285,7 @@ app.post('/products/:id/reviews', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 // GET route for retrieving reviews of a product
 app.get('/products/:id/reviews', async (req, res) => {
